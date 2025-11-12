@@ -90,13 +90,14 @@ The ATLAS policy estimates the **critical path** of a program’s DAG *online* b
 > Calls belonging to longer critical paths are prioritized to minimize overall makespan.
 
 **Priority formula:**
-\[
+
+$
 p(c_j) =
 \begin{cases}
 0, & \text{if } c_j \text{ is a root node} \\
 \max_{c_k \in P(c_j)} (p(c_k) + t_k), & \text{otherwise}
 \end{cases}
-\]
+$
 
 In practice, each program maintains a single scalar `service_time` value in the process table, updated whenever a call finishes. This provides a fast, online approximation of the critical path length.
 
@@ -122,9 +123,9 @@ This design provides predictable fairness while preserving GPU utilization.
 Discrete priority systems can starve long-running programs.  
 RSM prevents this by monitoring the **wait-to-service ratio**:
 
-\[
+$
 \frac{W_{total}}{T_{total}} \ge \beta
-\]
+$
 
 If a program exceeds this threshold `β`, its next call is **promoted to the highest priority queue (Q1)**.  
 All active threads for that program are promoted together, ensuring synchronized fairness.
