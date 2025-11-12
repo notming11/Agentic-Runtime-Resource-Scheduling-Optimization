@@ -90,7 +90,6 @@ The ATLAS policy estimates the **critical path** of a program’s DAG *online* b
 > Calls belonging to longer critical paths are prioritized to minimize overall makespan.
 
 **Priority formula:**
-
 $
 p(c_j) =
 \begin{cases}
