@@ -1,4 +1,4 @@
-# UDF Optimizer - Parallel Execution System
+# Generic Agent Task Parallelization Module: Complete Design Specification
 
 Production-ready parallelization system for agent workflows with LLM-based dependency analysis and Gemini API integration.
 
