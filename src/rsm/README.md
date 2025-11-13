@@ -144,10 +144,42 @@ This hybrid routing policy yields up to **1.4× higher throughput** over standar
 
 ---
 
-## 🧠 Pseudocode Reference
+## Interaction between external Agent system and LLM engines
+
+### Communication between Deerflow and RSM
+
+We modify `src/llms/llm.py` to include the following
 
 ```python
-def scheduler(queues, process_table):
+# Import vLLM (your code or an API wrapper)
+from RSM import schedule_vllm_request
+
+def get_llm_by_type(agent_type):
+    # Optionally load config for agent_type...
+    # Instead of returning OpenAI, DeepSeek, etc.,
+    # Rturn a wrapper that calls vLLM through your scheduler
+
+    class ScheduledVLLM:
+        def invoke(self, messages, **kwargs):
+            # Convert messages to vLLM format
+            # Schedule and run through your scheduling algorithm
+            return schedule_vllm_request(messages, **kwargs)
+
+        # Mimic interface if needed (batch, async, etc.)
+
+    return ScheduledVLLM()
+```
+
+### Integrating RSM with vLLM
+
+We modify vLLM so that it supports preempting LLM calls by swapping KV-cache. 
+
+## 🧠 Pseudocode Reference
+
+Scheduler:
+
+```python
+def schedule_vllm_request(queues, process_table):
     for call in incoming_llm_calls:
         # Assign queue based on cumulative service time
         q_idx = determine_queue(call.pid, process_table)
@@ -161,3 +193,33 @@ def scheduler(queues, process_table):
                 demote(c)
             elif starvation_ratio(c.pid) >= beta:
                 promote(c)
+
+```
+
+Load Balancer:
+
+```python
+def assign_engine(call, process_table, engines, token_threshold=2048):
+    pid = call.program_id
+    length = call.token_length
+
+    # 1. Reuse engine if program already has affinity
+    if pid in process_table and process_table[pid].get("engine"):
+        eng = process_table[pid]["engine"]
+        if eng.is_available():
+            return eng
+
+    # 2. Classify call by token length
+    if length > token_threshold:
+        # Long call → preserve cache locality
+        eng = process_table.get(pid, {}).get("engine") \
+              or max(engines, key=lambda e: e.free_kv_cache)
+    else:
+        # Short call → choose least loaded engine
+        eng = min(engines, key=lambda e: e.load())
+
+    # 3. Update metadata
+    process_table.setdefault(pid, {})["engine"] = eng
+    eng.enqueue(call)
+    return eng
+```
