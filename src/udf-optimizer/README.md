@@ -203,8 +203,8 @@ Apache License 2.0 - See [LICENSE](../../LICENSE) for details.
 
 ## Roadmap
 
-- [x] Core parallelization engine
-- [x] LLM-based dependency analysis
+- [ ] Core parallelization engine
+- [ ] LLM-based dependency analysis
 - [ ] Integration with DeerFlow framework
 - [ ] Hierarchical result aggregation
 - [ ] Vector database integration for large contexts
