@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Get the API key from the environment variables
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -27,11 +26,7 @@ if not api_key:
 # models/gemini-2.5-computer-use-preview-10-2025
 
 genai.configure(api_key=api_key)
-
-# Create the model
 model = genai.GenerativeModel('models/gemini-2.5-flash-preview-09-2025')
-
-# Generate content
 response = model.generate_content("Hello, world!")
 
 print(response.text)
