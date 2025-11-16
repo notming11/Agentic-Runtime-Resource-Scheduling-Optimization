@@ -6,6 +6,7 @@ import json
 
 load_dotenv()
 
+# Get the API key from the environment variables
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
