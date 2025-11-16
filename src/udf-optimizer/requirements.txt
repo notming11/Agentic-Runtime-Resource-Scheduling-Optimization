@@ -1,2 +1,11 @@
+# Original test dependencies
 python-dotenv
 google-generativeai
+
+# Parallelization implementation dependencies
+pyyaml
+
+# Optional: For real DeerFlow integration
+# langgraph
+# langchain-core
+# langchain-openai
