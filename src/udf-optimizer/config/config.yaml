@@ -1,0 +1,27 @@
+# DeerFlow Parallelization Configuration
+
+parallelization:
+  # Enable or disable parallelization
+  enabled: true
+  
+  # Concurrency limits
+  max_concurrent_tasks: 10      # Maximum tasks executing simultaneously
+  max_tasks_per_second: 5.0     # Rate limit for launching tasks
+  
+  # Timeout settings
+  task_timeout_seconds: 300     # 5 minutes per task
+  batch_timeout_seconds: 900    # 15 minutes per batch
+  
+  # Error handling
+  retry_on_failure: true
+  max_retries: 3
+  retry_backoff_seconds: [2, 10, 30]  # Exponential backoff delays
+  failure_mode: "partial_completion"  # Options: "fail_fast", "partial_completion"
+  
+  # Dependency analysis
+  dependency_strategy: "llm_based"  # Options: "llm_based", "heuristic", "explicit"
+
+# Workflow configuration
+workflow:
+  enable_parallelization: true
+  log_level: "INFO"
