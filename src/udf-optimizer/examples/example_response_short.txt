@@ -1,0 +1,68 @@
+{
+  "locale": "en-US",
+  "has_enough_context": false,
+  "thought": "The user requires a multi-stage research plan: first, identify the top 3 most visited cities globally; second, find the most popular attractions in each city; and third, compile and rank these 3 attractions based on a 'total price point' metric (attraction cost, local food cost, and round-trip flight price from Toronto, Ontario). Since no data is available, extensive research is mandatory. Due to the 10-step constraint, I will consolidate the city research into groups while ensuring comprehensive data collection for all 10 cities and subsequent cost analysis.",
+  "title": "Comprehensive Research and Cost Analysis of Top 3 Tourist City Attractions",
+  "steps": [
+    {
+      "need_search": true,
+      "title": "Identify Top 3 Most Visited Cities",
+      "description": "Gather the most recent list of the top 3 cities ranked by yearly international tourist arrivals, ensuring the source is credible and up-to-date (e.g., Euromonitor, Mastercard GDCI, UNWTO).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Attraction and Local Cost Research: City 1",
+      "description": "For City 1, collect the following quantitative data: the most popular attraction based on recent yearly visitor counts (listing the visitor count for each), the current average adult ticket price for each of these 12 attractions, and the estimated average daily cost of food (three meals) for a tourist in each city.",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Attraction and Local Cost Research: City 2",
+      "description": "For City 2, collect the following quantitative data: the most popular attraction based on recent yearly visitor counts (listing the visitor count for each), the current average adult ticket price for each of these 12 attractions, and the estimated average daily cost of food (three meals) for a tourist in each city.",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Attraction and Local Cost Research: City 3",
+      "description": "For City 3, collect the following quantitative data: the most popular attraction based on recent yearly visitor counts (listing the visitor count for each), the current average adult ticket price for each of these 12 attractions, and the estimated average daily cost of food (three meals) for a tourist in each city.",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Flight Prices",
+      "description": "For Cities 1-3, collect current round-trip economy class flight prices from Toronto, Ontario (YYZ) to the primary international airport of all 10 previously identified cities (using non-peak season average pricing).",
+      "step_type": "research"
+    },
+    {
+      "need_search": false,
+      "title": "Validate and Compile Top 3 Attractions Data",
+      "description": "Process the gathered data to finalize the list of 3 attractions. Extract and normalize the yearly visitor counts, attraction ticket prices, and local daily food costs into a unified dataset for all 3 attractions.",
+      "step_type": "processing"
+    },
+    {
+      "need_search": false,
+      "title": "Calculate 'Visitor Day Cost' Metric",
+      "description": "For each of the 3 attractions, calculate the 'Visitor Day Cost' metric by summing the attraction's current average adult ticket price and the city's estimated average daily food cost. All costs must be converted to a single currency (USD) for consistency.",
+      "step_type": "processing"
+    },
+    {
+      "need_search": false,
+      "title": "Calculate 'Total Research Cost' Metric",
+      "description": "For each of the 3 attractions, calculate the 'Total Research Cost' by adding the previously calculated 'Visitor Day Cost' to the respective city's round-trip flight price from Toronto, Ontario (YYZ). This serves as the comprehensive 'price point' for ranking.",
+      "step_type": "processing"
+    },
+    {
+      "need_search": false,
+      "title": "Rank Attractions by Total Cost",
+      "description": "Rank the 3 attractions based on the calculated 'Total Research Cost' metric, from the lowest cost (cheapest) to the highest cost (most expensive).",
+      "step_type": "processing"
+    },
+    {
+      "need_search": false,
+      "title": "Final Data Synthesis and Structuring",
+      "description": "Structure the final output into a comprehensive table detailing the city, attraction name, yearly visitor count, individual cost components (ticket, food, flight), the 'Total Research Cost,' and the final ranking.",
+      "step_type": "processing"
+    }
+  ]
+}
