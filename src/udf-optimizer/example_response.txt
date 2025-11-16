@@ -1,0 +1,68 @@
+{
+  "locale": "en-US",
+  "has_enough_context": false,
+  "thought": "The user requires a multi-stage research plan: first, identifying the top 10 most visited cities globally; second, finding the top 3 popular attractions for each (total 30); and third, compiling a detailed cost analysis for all 30, including attraction ticket price, local food cost, and round-trip flight price from Toronto (YYZ). Due to the 10-step constraint, I must consolidate the city-specific research while ensuring all required data points are gathered comprehensively across 8 research and 2 processing steps.",
+  "title": "Global Top Tourist Cities and Attraction Cost Ranking Research Plan",
+  "steps": [
+    {
+      "need_search": true,
+      "title": "Identify Top 10 Most Visited Cities",
+      "description": "Collect the official list of the top 10 most visited cities globally by international tourist arrivals, based on the latest available reports (e.g., Euromonitor International, World Tourism Organization, Mastercard).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "City Research & Cost Data Collection (Cities 1-3)",
+      "description": "For Cities 1, 2, and 3 from the identified list, find the top 3 most popular attractions by yearly visitors (9 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "City Research & Cost Data Collection (Cities 4-6)",
+      "description": "For Cities 4, 5, and 6, find the top 3 most popular attractions by yearly visitors (9 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "City Research & Cost Data Collection (Cities 7-10)",
+      "description": "For Cities 7, 8, 9, and 10, find the top 3 most popular attractions by yearly visitors (12 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Flight Price Research (Cities 1-5)",
+      "description": "Determine the current average round-trip economy class flight cost from Toronto, Ontario (YYZ) to the primary international airport serving Cities 1 through 5, based on non-peak season booking averages.",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Flight Price Research (Cities 6-10)",
+      "description": "Determine the current average round-trip economy class flight cost from Toronto, Ontario (YYZ) to the primary international airport serving Cities 6 through 10, based on non-peak season booking averages.",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Currency Conversion and Standardization Research",
+      "description": "Collect and document the current exchange rates to convert all collected cost data (attraction tickets, food costs, flight prices) into a single standard currency (e.g., USD) for comparison.",
+      "step_type": "research"
+    },
+    {
+      "need_search": false,
+      "title": "Data Collation and Preparation",
+      "description": "Collate all 30 attractions and their associated cost data (ticket price, daily food cost, city-based flight cost) and standardize them using the researched exchange rates. Prepare a dataset ready for calculation and ranking.",
+      "step_type": "processing"
+    },
+    {
+      "need_search": false,
+      "title": "Total Price Point Calculation",
+      "description": "Calculate a total 'price point' index for each of the 30 attractions. This index should combine the flight cost (attributed to the city), the attraction ticket cost, and the daily food cost. State the methodology for attributing flight cost (e.g., flight cost + attraction cost + 1 day of food cost).",
+      "step_type": "processing"
+    },
+    {
+      "need_search": false,
+      "title": "Final Ranking of 30 Attractions",
+      "description": "Rank the 30 individual attractions from the lowest price point index to the highest price point index based on the total calculated cost, generating the final ranked list.",
+      "step_type": "processing"
+    }
+  ]
+}
