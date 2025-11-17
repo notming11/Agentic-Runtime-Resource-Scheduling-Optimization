@@ -3,23 +3,49 @@
 parallelization:
   # Enable or disable parallelization
   enabled: true
-  
+
   # Concurrency limits
   max_concurrent_tasks: 10      # Maximum tasks executing simultaneously
   max_tasks_per_second: 5.0     # Rate limit for launching tasks
-  
+
   # Timeout settings
   task_timeout_seconds: 300     # 5 minutes per task
   batch_timeout_seconds: 900    # 15 minutes per batch
-  
+
   # Error handling
   retry_on_failure: true
   max_retries: 3
   retry_backoff_seconds: [2, 10, 30]  # Exponential backoff delays
   failure_mode: "partial_completion"  # Options: "fail_fast", "partial_completion"
-  
+
   # Dependency analysis
   dependency_strategy: "llm_based"  # Options: "llm_based", "heuristic", "explicit"
+
+# LLM Backend Configuration
+llm:
+  # Backend selection: "local", "gemini", "openai"
+  backend: "local"
+
+  # Local LLM Server Settings (for vLLM, llama.cpp, Ollama, etc.)
+  # These servers typically provide OpenAI-compatible APIs
+  local_api_base: "http://localhost:8000/v1"
+  local_model: "local-model"  # Model identifier used by your local server
+  local_api_key: null  # Some local servers require API keys, set if needed
+
+  # Google Gemini Settings
+  gemini_api_key: null  # Or set via GEMINI_API_KEY environment variable
+  gemini_model: "gemini-2.0-flash-exp"
+
+  # OpenAI Settings (for cloud OpenAI)
+  openai_api_key: null  # Or set via OPENAI_API_KEY environment variable
+  openai_api_base: null  # Leave null for default OpenAI endpoint
+  openai_model: "gpt-4"
+
+  # Generation Parameters
+  temperature: 0.7
+  max_tokens: 4096
+  top_p: 0.9
+  timeout_seconds: 120.0
 
 # Workflow configuration
 workflow:
