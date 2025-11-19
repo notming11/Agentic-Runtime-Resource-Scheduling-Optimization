@@ -137,7 +137,7 @@ class EngineProcess:
 
         # Cancellation tracking (shared across processes)
         self._manager = mp.Manager()
-        self.cancel_set: Set[str] = self._manager.set()
+        self.cancel_set: Dict[str, bool] = self._manager.dict()
 
         # Engine metrics (shared)
         self._metrics = self._manager.dict()
@@ -242,7 +242,7 @@ class EngineProcess:
         Args:
             request_id: Request identifier
         """
-        self.cancel_set.add(request_id)
+        self.cancel_set[request_id] = True
 
     def get_result(self, timeout: float = 0.1) -> Optional[LLMResponse]:
         """
@@ -321,7 +321,7 @@ class EngineProcess:
         request_queue: mp.Queue,
         result_queue: mp.Queue,
         status_queue: mp.Queue,
-        cancel_set: Set[str],
+        cancel_set: Dict[str, bool],
         metrics: Dict[str, Any]
     ):
         """
@@ -401,7 +401,7 @@ class EngineProcess:
         request_queue: mp.Queue,
         result_queue: mp.Queue,
         status_queue: mp.Queue,
-        cancel_set: Set[str],
+        cancel_set: Dict[str, bool],
         metrics: Dict[str, Any],
         has_vllm: bool
     ):
@@ -434,7 +434,7 @@ class EngineProcess:
 
                     # Check if already cancelled
                     if request.request_id in cancel_set:
-                        cancel_set.discard(request.request_id)
+                        del cancel_set[request.request_id]
                         metrics["requests_cancelled"] += 1
                         result_queue.put(LLMResponse(
                             request_id=request.request_id,
@@ -466,7 +466,7 @@ class EngineProcess:
                     # Cancel the task
                     active_requests[request_id].cancel()
                     del active_requests[request_id]
-                    cancel_set.discard(request_id)
+                    del cancel_set[request_id]
                     metrics["requests_cancelled"] += 1
 
             # Update status
@@ -524,7 +524,7 @@ class EngineProcess:
                     # Check for cancellation
                     if request_id in cancel_set:
                         await engine.abort(request_id)
-                        cancel_set.discard(request_id)
+                        del cancel_set[request_id]
                         return
 
                     results.append(output)

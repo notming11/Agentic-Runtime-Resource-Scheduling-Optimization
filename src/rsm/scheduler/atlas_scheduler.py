@@ -6,10 +6,10 @@ import logging
 import time
 from dataclasses import field
 
-from priority_queue import PriorityQueueManager
-from context import ProgramContext, ThreadContext
-from mlfq_base import MLFQBase
-from rsm.frontend.process_table import GlobalProcessTable
+from .priority_queue import PriorityQueueManager
+from .context import ProgramContext, ThreadContext
+from .mlfq_base import MLFQBase
+from frontend.process_table import GlobalProcessTable
 
 class ATLASScheduler(MLFQBase):
     
