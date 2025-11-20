@@ -54,6 +54,8 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure API Key
+Currently the implementation only supports the gemini api, this can easily be configured to use other service provieders by implementing a provider executor under /core
+
 ```bash
 # Copy template
 cp .env.example .env
@@ -71,21 +73,17 @@ python tests/validate.py
 
 ### 3. Run the System
 ```bash
-# Real LLM execution (requires API key)
-python main_real.py
+cd src\udf-optimizer
 
-# Or mock execution (no API key needed)
-python main.py
-
-# Run performance comparison (parallel vs sequential)
-python compare_performance.py
+# RUN e2e tests
+python tests/test_e2e.py
 ```
 
 ## 📊 Performance Example
 
 **10-Step Tourist Research Plan:**
-- **Sequential**: ~100s (10s per step)
-- **Parallel**: ~45s (2.2x speedup)
+- **Sequential**: ~110.01s
+- **Parallel**: ~85.00s
 - **Efficiency**: Automatic LLM-based batching
 
 ## 🎯 Key Features
@@ -121,69 +119,6 @@ pip install -r requirements.txt
 # Set up environment variables (required for LLM features)
 cp .env.example .env
 # Edit .env and add your GOOGLE_API_KEY
-```
-
-## Project Structure
-
-```
-udf-optimizer/
-├── main.py                      # Interactive entry point (start here!)
-├── core/                        # Core parallelization engine
-│   ├── workflow_types.py        # Data structures (Plan, Step, State, etc.)
-│   ├── nodes.py                 # Parallel execution node
-│   ├── sequential_executor.py   # Sequential baseline executor
-│   ├── gemini_executor.py       # LLM-based dependency analysis
-│   └── workflow_graph.py        # Workflow orchestration
-├── tests/                       # Test suite
-│   ├── test_real_execution.py   # Real LLM integration test
-│   ├── test_demo.py             # Demo with synthetic plans
-│   ├── test_e2e.py              # End-to-end comparison test
-│   ├── test_integration.py      # Integration tests
-│   ├── test_unit.py             # Unit tests
-│   └── validate.py              # Quick validation (no LLM calls)
-├── examples/                    # Example plans and outputs
-│   ├── example_response_*.txt   # Sample plan files
-│   └── *.md                     # Generated reports
-├── config/                      # Configuration files
-│   ├── parallel_prompt.md       # LLM prompt for dependency analysis
-│   └── step_execution_prompt.md # LLM prompt for step execution
-└── docs/                        # Documentation
-    └── *.md                     # Various documentation files
-```
-
-## 📖 Documentation
-
-### Running the Interactive Interface
-
-The easiest way to use the optimizer is through the interactive main script:
-
-```bash
-python main.py
-```
-
-This will guide you through:
-1. Selecting a plan file (or providing a custom path)
-2. Choosing execution mode (parallel, sequential, or comparison)
-3. Configuring performance settings
-4. Specifying output location
-
-### Command-Line Usage
-
-For automated workflows, you can run specific test scripts:
-
-```bash
-# Run parallel execution test with real LLM integration
-python tests/test_real_execution.py
-
-# Run demonstration with synthetic plans (no API calls needed)
-python tests/test_demo.py
-
-# Run full end-to-end test with comparison report
-python tests/test_e2e.py
-
-# Run unit and integration tests
-python tests/test_unit.py
-python tests/test_integration.py
 ```
 
 ### Programmatic Usage
