@@ -65,8 +65,8 @@ async def _execute_single_step(
             # Get context from previous steps
             context = [obs for obs in state.observations if obs.strip()]
             
-            # Execute using real Gemini API
-            result_content = await _mock_agent_execution(step, agent_type, config, context)
+            # Execute using real Gemini API with step index
+            result_content = await _mock_agent_execution(step, agent_type, config, context, step_idx)
             
             duration = time.time() - start_time
             logger.info(f"[Step {step_idx}] Completed in {duration:.2f}s")
@@ -90,7 +90,8 @@ async def _mock_agent_execution(
     step: Step,
     agent_type: str,
     config: Configuration,
-    context: List[str]
+    context: List[str],
+    step_idx: int = None
 ) -> str:
     """
     Execute a step using real Gemini API.
@@ -102,12 +103,13 @@ async def _mock_agent_execution(
         agent_type: Type of agent to use (currently ignored, uses Gemini)
         config: Configuration settings
         context: Previous step results for context
+        step_idx: Current step index for context mapping
     
     Returns:
         Execution result from Gemini
     """
     executor = GeminiStepExecutor()
-    result = await executor.execute_step(step, context)
+    result = await executor.execute_step(step, context, step_idx)
     return result
 
 
@@ -283,9 +285,9 @@ async def _execute_batch_parallel(
             state.observations.append(f"ERROR: {str(result)}")
         else:
             step_idx, content, agent_type = result
-            # Assign result to the correct step in the batch
-            if i < len(steps):
-                steps[i].execution_res = content
+            # Assign result to the correct step in the ORIGINAL plan using step_idx
+            if step_idx < len(state.current_plan.steps):
+                state.current_plan.steps[step_idx].execution_res = content
             state.observations.append(content)
             logger.debug(f"Added result for step {step_idx}")
 
@@ -304,8 +306,9 @@ async def _execute_batch_sequential(
             result = await _execute_with_retry(state, config, step, idx, agent_type)
             step_idx, content, agent_type = result
             
-            # Assign result directly to the current step
-            step.execution_res = content
+            # Assign result to the correct step in the ORIGINAL plan using step_idx
+            if step_idx < len(state.current_plan.steps):
+                state.current_plan.steps[step_idx].execution_res = content
             state.observations.append(content)
             logger.debug(f"Added result for step {step_idx}")
             

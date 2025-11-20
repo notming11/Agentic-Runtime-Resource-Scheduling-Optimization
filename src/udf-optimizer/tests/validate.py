@@ -44,10 +44,10 @@ except Exception as e:
 print("\n[2/6] Testing plan loading...")
 try:
     script_dir = Path(__file__).parent.parent
-    plan_path = script_dir / "examples" / "example_response_1.txt"
+    plan_path = script_dir / "examples" / "example_response.txt"
     
     if not plan_path.exists():
-        raise FileNotFoundError(f"example_response_1.txt not found at {plan_path}")
+        raise FileNotFoundError(f"example_response.txt not found at {plan_path}")
     
     plan = load_plan_from_json(plan_path)
     
