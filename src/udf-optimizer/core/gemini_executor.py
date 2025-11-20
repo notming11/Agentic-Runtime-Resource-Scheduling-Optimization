@@ -192,22 +192,23 @@ class GeminiStepExecutor:
     def __init__(self):
         self.model = genai.GenerativeModel('models/gemini-2.0-flash-exp')
     
-    async def execute_step(self, step: Step, context: List[str]) -> str:
+    async def execute_step(self, step: Step, context: List[str], step_idx: int = None) -> str:
         """
         Execute a single step using Gemini API.
         
         Args:
             step: The step to execute
             context: Previous step results for context
+            step_idx: Current step index for reference
         
         Returns:
             Execution result string
         """
         # Build prompt based on step type
         if step.step_type == StepType.RESEARCH:
-            prompt = self._build_research_prompt(step, context)
+            prompt = self._build_research_prompt(step, context, step_idx)
         else:
-            prompt = self._build_processing_prompt(step, context)
+            prompt = self._build_processing_prompt(step, context, step_idx)
         
         logger.info(f"Executing: {step.title}")
         
@@ -228,14 +229,35 @@ class GeminiStepExecutor:
             logger.error(f"Step '{step.title}' failed: {e}")
             return error_msg
     
-    def _build_research_prompt(self, step: Step, context: List[str]) -> str:
+    def _build_research_prompt(self, step: Step, context: List[str], step_idx: int = None) -> str:
         """Build prompt for research-type steps."""
+        
+        # Detect if this step references specific items (City 1, City 2, etc.)
+        step_specific_instruction = ""
+        if step_idx is not None and ("City 1" in step.description or "City 2" in step.description or "City 3" in step.description):
+            # Extract which city number this is
+            city_num = None
+            if "City 1" in step.description or "city 1" in step.title.lower():
+                city_num = 1
+            elif "City 2" in step.description or "city 2" in step.title.lower():
+                city_num = 2
+            elif "City 3" in step.description or "city 3" in step.title.lower():
+                city_num = 3
+            
+            if city_num and context:
+                step_specific_instruction = f"""
+**IMPORTANT**: This step asks you to research "City {city_num}". Look at Step 0's results below to identify which specific city "City {city_num}" refers to. 
+- If Step 0 identifies a ranked list of cities, "City {city_num}" means the city ranked #{city_num} in that list.
+- Extract the actual city name from Step 0's results and use it for your research.
+- Replace "City {city_num}" with the actual city name in your response.
+"""
+        
         prompt = f"""You are a research assistant. Your task is to provide comprehensive information for the following research requirement.
 
 **Task**: {step.title}
 
 **Requirements**: {step.description}
-
+{step_specific_instruction}
 **Instructions**:
 - Provide detailed, factual information based on your knowledge
 - Include specific data points, numbers, and facts where relevant
@@ -245,15 +267,16 @@ class GeminiStepExecutor:
 """
         
         if context:
-            prompt += f"\n**Previous Research Context**:\n"
-            for i, ctx in enumerate(context[-3:], 1):  # Last 3 for context
-                prompt += f"\n{i}. {ctx[:200]}...\n"
+            prompt += f"\n**Previous Research Results (Use these as your data source)**:\n"
+            # Include full context from previous steps, not truncated
+            for i, ctx in enumerate(context, 1):
+                prompt += f"\n--- Result from Step {i-1} ---\n{ctx}\n"
         
         prompt += "\nProvide your research findings:"
         
         return prompt
     
-    def _build_processing_prompt(self, step: Step, context: List[str]) -> str:
+    def _build_processing_prompt(self, step: Step, context: List[str], step_idx: int = None) -> str:
         """Build prompt for processing-type steps."""
         prompt = f"""You are a data analyst. Your task is to analyze and process the provided data.
 
@@ -261,21 +284,27 @@ class GeminiStepExecutor:
 
 **Requirements**: {step.description}
 
-**Data to Process**:
+**Available Data from Previous Steps**:
 """
         
         if context:
             for i, ctx in enumerate(context, 1):
-                prompt += f"\n--- Dataset {i} ---\n{ctx}\n"
+                prompt += f"\n--- Result from Step {i-1} ---\n{ctx}\n"
         else:
             prompt += "\n(No previous data available)\n"
         
         prompt += f"""
-**Instructions**:
-- Carefully analyze all provided data
+**CRITICAL INSTRUCTIONS for Data Mapping**:
+- The datasets above are numbered according to the step that produced them (Step 0, Step 1, Step 2, etc.)
+- If your task mentions "City 1", "City 2", or "City 3", you MUST:
+  1. First look at Step 0's result to identify which actual cities these refer to (e.g., the 1st, 2nd, and 3rd cities in the ranked list)
+  2. Then look at Steps 1, 2, and 3 to find the research about those specific cities
+  3. Match the data correctly: Step 1 data → City ranked #1 in Step 0, Step 2 data → City ranked #2, etc.
+- If your task references specific steps or cities, cite the actual city names from Step 0, not generic placeholders
+- Be extremely careful to use data from the correct steps
 - Follow the requirements exactly
 - Show your work/calculations if relevant
-- Provide clear, structured output
+- Provide clear, structured output with actual city names, not "City 1", "City 2", etc.
 - Be thorough and accurate
 
 Provide your analysis:"""
