@@ -15,7 +15,7 @@ from dataclasses import dataclass
 import logging
 import time
 
-from context import ProgramContext
+from .context import ProgramContext
 
 logger = logging.getLogger(__name__)
 
