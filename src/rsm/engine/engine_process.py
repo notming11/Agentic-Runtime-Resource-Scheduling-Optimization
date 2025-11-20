@@ -6,6 +6,9 @@ to enable multi-engine orchestration through process-based isolation.
 
 Each EngineProcess runs in a separate Python process and communicates
 via queues for request submission and result collection.
+
+FIXED: Changed cancel_set from Manager.set() to Manager.dict() for
+better cross-platform compatibility (Windows compatibility issue).
 """
 
 import asyncio
@@ -136,8 +139,9 @@ class EngineProcess:
         self.process: Optional[mp.Process] = None
 
         # Cancellation tracking (shared across processes)
+        # Using dict instead of set for Windows compatibility
         self._manager = mp.Manager()
-        self.cancel_set: Set[str] = self._manager.set()
+        self.cancel_dict = self._manager.dict()  # Use dict as set
 
         # Engine metrics (shared)
         self._metrics = self._manager.dict()
@@ -173,7 +177,7 @@ class EngineProcess:
                 self.request_queue,
                 self.result_queue,
                 self.status_queue,
-                self.cancel_set,
+                self.cancel_dict,
                 self._metrics
             ),
             daemon=False
@@ -236,13 +240,14 @@ class EngineProcess:
         """
         Cancel a request.
 
-        Adds the request ID to the cancellation set. The engine process
-        will check this set and abort the request if it's still running.
+        Adds the request ID to the cancellation dict. The engine process
+        will check this dict and abort the request if it's still running.
 
         Args:
             request_id: Request identifier
         """
-        self.cancel_set.add(request_id)
+        # Use dict as set: just set any value (True)
+        self.cancel_dict[request_id] = True
 
     def get_result(self, timeout: float = 0.1) -> Optional[LLMResponse]:
         """
@@ -321,7 +326,7 @@ class EngineProcess:
         request_queue: mp.Queue,
         result_queue: mp.Queue,
         status_queue: mp.Queue,
-        cancel_set: Set[str],
+        cancel_dict: Dict,  # Changed from Set to Dict
         metrics: Dict[str, Any]
     ):
         """
@@ -338,7 +343,7 @@ class EngineProcess:
             request_queue: Queue for incoming requests
             result_queue: Queue for outgoing results
             status_queue: Queue for status updates
-            cancel_set: Set of cancelled request IDs
+            cancel_dict: Dict used as set of cancelled request IDs
             metrics: Shared metrics dictionary
         """
         # Set GPU device
@@ -389,7 +394,7 @@ class EngineProcess:
             request_queue,
             result_queue,
             status_queue,
-            cancel_set,
+            cancel_dict,
             metrics,
             has_vllm
         ))
@@ -401,7 +406,7 @@ class EngineProcess:
         request_queue: mp.Queue,
         result_queue: mp.Queue,
         status_queue: mp.Queue,
-        cancel_set: Set[str],
+        cancel_dict: Dict,  # Changed from Set to Dict
         metrics: Dict[str, Any],
         has_vllm: bool
     ):
@@ -414,7 +419,7 @@ class EngineProcess:
             request_queue: Queue for incoming requests
             result_queue: Queue for outgoing results
             status_queue: Queue for status updates
-            cancel_set: Set of cancelled request IDs
+            cancel_dict: Dict used as set of cancelled request IDs
             metrics: Shared metrics dictionary
             has_vllm: Whether vLLM is available
         """
@@ -432,9 +437,11 @@ class EngineProcess:
                     request: LLMRequest = data
                     metrics["queue_depth"] = max(0, metrics["queue_depth"] - 1)
 
-                    # Check if already cancelled
-                    if request.request_id in cancel_set:
-                        cancel_set.discard(request.request_id)
+                    # Check if already cancelled (using dict.get())
+                    if cancel_dict.get(request.request_id):
+                        # Remove from cancel dict
+                        if request.request_id in cancel_dict:
+                            del cancel_dict[request.request_id]
                         metrics["requests_cancelled"] += 1
                         result_queue.put(LLMResponse(
                             request_id=request.request_id,
@@ -450,7 +457,7 @@ class EngineProcess:
                             engine,
                             request,
                             result_queue,
-                            cancel_set,
+                            cancel_dict,
                             metrics,
                             has_vllm
                         )
@@ -460,13 +467,13 @@ class EngineProcess:
             except queue.Empty:
                 pass
 
-            # Check for cancelled requests
-            for request_id in list(cancel_set):
+            # Check for cancelled requests (iterate over dict keys)
+            for request_id in list(cancel_dict.keys()):
                 if request_id in active_requests:
                     # Cancel the task
                     active_requests[request_id].cancel()
                     del active_requests[request_id]
-                    cancel_set.discard(request_id)
+                    del cancel_dict[request_id]
                     metrics["requests_cancelled"] += 1
 
             # Update status
@@ -487,7 +494,7 @@ class EngineProcess:
         engine: Any,
         request: LLMRequest,
         result_queue: mp.Queue,
-        cancel_set: Set[str],
+        cancel_dict: Dict,  # Changed from Set to Dict
         metrics: Dict[str, Any],
         has_vllm: bool
     ):
@@ -498,7 +505,7 @@ class EngineProcess:
             engine: vLLM AsyncLLMEngine instance (or None for mock)
             request: LLM request
             result_queue: Queue for results
-            cancel_set: Set of cancelled request IDs
+            cancel_dict: Dict used as set of cancelled request IDs
             metrics: Shared metrics dictionary
             has_vllm: Whether vLLM is available
         """
@@ -521,10 +528,11 @@ class EngineProcess:
                     sampling_params,
                     request_id
                 ):
-                    # Check for cancellation
-                    if request_id in cancel_set:
+                    # Check for cancellation (using dict.get())
+                    if cancel_dict.get(request_id):
                         await engine.abort(request_id)
-                        cancel_set.discard(request_id)
+                        if request_id in cancel_dict:
+                            del cancel_dict[request_id]
                         return
 
                     results.append(output)

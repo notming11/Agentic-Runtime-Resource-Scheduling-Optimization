@@ -3,7 +3,7 @@ Integration Tests for Multi-Engine Orchestration
 
 This module tests the complete multi-engine orchestration system including:
 - Starting/stopping multiple engine processes
-- Routing requests across engines
+- Routing requests across engines (now using LoadBalancer)
 - Cancelling in-flight requests
 - Session affinity and KV cache locality
 - Load balancing
@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from engine.multi_engine_manager import MultiEngineManager
 from engine.engine_process import EngineConfig, EngineStatus
 from engine.lifecycle_manager import RequestState
+from frontend.process_table import GlobalProcessTable
 
 
 class TestMultiEngineOrchestration(unittest.TestCase):
@@ -31,8 +32,11 @@ class TestMultiEngineOrchestration(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
+        # Create process table for LoadBalancer integration
+        self.process_table = GlobalProcessTable()
+        
         # Create manager with 2 mock engines
-        self.manager = MultiEngineManager()
+        self.manager = MultiEngineManager(process_table=self.process_table)
 
         # Add two engines
         config1 = EngineConfig(
@@ -87,7 +91,7 @@ class TestMultiEngineOrchestration(unittest.TestCase):
         print("✓ All engines started successfully\n")
 
     def test_02_route_requests_across_engines(self):
-        """Test routing multiple requests across engines"""
+        """Test routing multiple requests across engines using LoadBalancer"""
         print("\n=== Test 2: Routing Requests Across Engines ===")
 
         # Start manager
@@ -134,18 +138,24 @@ class TestMultiEngineOrchestration(unittest.TestCase):
 
             # Check that requests were distributed across engines
             engine_distribution = {}
-            for request_id in self.manager._request_map.values():
-                engine_id = request_id
+            for request_id, engine_id in self.manager._request_map.items():
                 engine_distribution[engine_id] = engine_distribution.get(engine_id, 0) + 1
 
             print(f"\nEngine distribution: {engine_distribution}")
 
-            # Get stats
+            # Get stats (now includes load balancer stats)
             stats = self.manager.get_stats()
             print(f"\nManager stats:")
             print(f"  Total requests: {stats['total_requests']}")
             print(f"  Completed requests: {stats['completed_requests']}")
             print(f"  Average latency: {stats['average_latency']:.3f}s")
+            
+            # Check load balancer stats
+            lb_stats = stats.get('load_balancer_stats', {})
+            print(f"\nLoad Balancer stats:")
+            print(f"  Small requests: {lb_stats.get('small_requests', 0)}")
+            print(f"  Large requests: {lb_stats.get('large_requests', 0)}")
+            print(f"  Locality hits: {lb_stats.get('locality_hits', 0)}")
 
         # Run async test
         loop = asyncio.new_event_loop()
@@ -224,7 +234,7 @@ class TestMultiEngineOrchestration(unittest.TestCase):
         print("✓ Request cancellation works correctly\n")
 
     def test_04_session_affinity(self):
-        """Test session affinity (same session routes to same engine)"""
+        """Test session affinity via LoadBalancer and KV cache"""
         print("\n=== Test 4: Session Affinity ===")
 
         # Start manager
@@ -235,7 +245,7 @@ class TestMultiEngineOrchestration(unittest.TestCase):
             session_id = "affinity_test_session"
 
             # Submit multiple long requests for the same session
-            # Long requests (>2048 tokens) should route to same engine
+            # Long requests (>2048 tokens) should route to same engine via LoadBalancer
             futures = []
             for i in range(5):
                 # Create a long prompt (>2048 tokens)
@@ -277,11 +287,21 @@ class TestMultiEngineOrchestration(unittest.TestCase):
             print(f"  Total misses: {cache_stats['total_misses']}")
             print(f"  Hit rate: {cache_stats['hit_rate']:.2%}")
 
-            # After first request, subsequent requests should have cache affinity
-            # (though with only 2 engines and random initial routing, we can't
-            # guarantee they all go to the same engine, but they should prefer it)
+            # Check LoadBalancer stats
+            stats = self.manager.get_stats()
+            lb_stats = stats.get('load_balancer_stats', {})
+            print(f"\nLoad Balancer stats:")
+            print(f"  Large requests: {lb_stats.get('large_requests', 0)}")
+            print(f"  Locality hits: {lb_stats.get('locality_hits', 0)}")
+            print(f"  Locality assigns: {lb_stats.get('locality_assigns', 0)}")
+
+            # Check which engine was assigned for this program
+            assigned_engine = self.manager.load_balancer.get_program_engine(session_id)
+            print(f"\nProgram {session_id} assigned to engine: {assigned_engine}")
+
+            # After first request, subsequent requests should use same engine
             session_engines = self.manager.kv_cache.get_session_engines(session_id)
-            print(f"\nEngines with cache for {session_id}: {session_engines}")
+            print(f"Engines with cache for {session_id}: {session_engines}")
 
         # Run async test
         loop = asyncio.new_event_loop()
@@ -324,6 +344,10 @@ class TestMultiEngineOrchestration(unittest.TestCase):
             cancelled_ids = await self.manager.cancel_session(session_id)
             print(f"Cancelled {len(cancelled_ids)} requests: {cancelled_ids}")
 
+            # Check that program was removed from LoadBalancer
+            assigned_engine = self.manager.load_balancer.get_program_engine(session_id)
+            self.assertIsNone(assigned_engine, "Program should be removed from LoadBalancer")
+
             # Check results
             for i, future in enumerate(futures):
                 try:
@@ -349,7 +373,7 @@ class TestMultiEngineOrchestration(unittest.TestCase):
         print("✓ Session cancellation works\n")
 
     def test_06_load_balancing(self):
-        """Test load balancing across engines"""
+        """Test load balancing across engines using LoadBalancer"""
         print("\n=== Test 6: Load Balancing ===")
 
         # Start manager
@@ -357,10 +381,10 @@ class TestMultiEngineOrchestration(unittest.TestCase):
         time.sleep(2.0)
 
         async def run_test():
-            # Submit many short requests (should use least-loaded routing)
+            # Submit many short requests (should use least-loaded routing via LoadBalancer)
             futures = []
             for i in range(20):
-                # Short prompts (≤2048 tokens) should use least-loaded routing
+                # Short prompts (≤2048 tokens) should use LEAST_USED routing
                 short_prompt = f"Short test prompt {i}"
 
                 future = await self.manager.submit_request(
@@ -372,11 +396,11 @@ class TestMultiEngineOrchestration(unittest.TestCase):
 
             print(f"Submitted {len(futures)} short requests")
 
-            # Check engine loads
-            print("\nEngine loads:")
-            for engine_id, load in self.manager.engine_loads.items():
-                print(f"  {engine_id}: queue_depth={load.queue_depth}, "
-                      f"active={load.active_requests}, score={load.get_load_score():.1f}")
+            # Check engine loads via LoadBalancer
+            print("\nEngine loads (from LoadBalancer):")
+            for engine_id in ["engine_0", "engine_1"]:
+                workload = self.manager.load_balancer.get_engine_workload(engine_id)
+                print(f"  {engine_id}: workload={workload}")
 
             # Wait for completion
             completed = 0
@@ -395,6 +419,12 @@ class TestMultiEngineOrchestration(unittest.TestCase):
             print(f"  Total requests: {stats['total_requests']}")
             print(f"  Completed: {stats['completed_requests']}")
             print(f"  Average latency: {stats['average_latency']:.3f}s")
+
+            # Check LoadBalancer stats
+            lb_stats = stats.get('load_balancer_stats', {})
+            print(f"\nLoad Balancer stats:")
+            print(f"  Small requests: {lb_stats.get('small_requests', 0)}")
+            print(f"  Total requests: {lb_stats.get('total_requests', 0)}")
 
             # Check that load was distributed
             engine_metrics = {}
@@ -418,6 +448,76 @@ class TestMultiEngineOrchestration(unittest.TestCase):
             loop.close()
 
         print("✓ Load balancing works\n")
+
+    def test_07_load_balancer_integration(self):
+        """Test LoadBalancer integration with threshold logic"""
+        print("\n=== Test 7: LoadBalancer Integration ===")
+
+        # Start manager
+        self.manager.start()
+        time.sleep(2.0)
+
+        async def run_test():
+            # Test 1: Small request (≤2048 tokens) should use LEAST_USED
+            print("\nTest 1: Small requests use LEAST_USED")
+            small_session = "small_test"
+            await self.manager.submit_request(
+                session_id=small_session,
+                prompt="Short prompt",
+                sampling_params={"max_tokens": 20}
+            )
+
+            stats = self.manager.get_stats()
+            lb_stats = stats.get('load_balancer_stats', {})
+            self.assertEqual(lb_stats.get('small_requests', 0), 1, "Should have 1 small request")
+            print(f"  ✓ Small requests: {lb_stats.get('small_requests', 0)}")
+
+            # Test 2: Large request (>2048 tokens) should assign to engine
+            print("\nTest 2: Large requests use locality")
+            large_session = "large_test"
+            long_prompt = "word " * 3000  # >2048 tokens
+            
+            # First large request assigns
+            await self.manager.submit_request(
+                session_id=large_session,
+                prompt=long_prompt,
+                sampling_params={"max_tokens": 50}
+            )
+
+            stats = self.manager.get_stats()
+            lb_stats = stats.get('load_balancer_stats', {})
+            self.assertEqual(lb_stats.get('large_requests', 0), 1, "Should have 1 large request")
+            self.assertEqual(lb_stats.get('locality_assigns', 0), 1, "Should have 1 locality assignment")
+            print(f"  ✓ Large requests: {lb_stats.get('large_requests', 0)}")
+            print(f"  ✓ Locality assigns: {lb_stats.get('locality_assigns', 0)}")
+
+            # Second large request should hit locality
+            await self.manager.submit_request(
+                session_id=large_session,
+                prompt=long_prompt,
+                sampling_params={"max_tokens": 50}
+            )
+
+            stats = self.manager.get_stats()
+            lb_stats = stats.get('load_balancer_stats', {})
+            self.assertEqual(lb_stats.get('large_requests', 0), 2, "Should have 2 large requests")
+            self.assertEqual(lb_stats.get('locality_hits', 0), 1, "Should have 1 locality hit")
+            print(f"  ✓ Locality hits: {lb_stats.get('locality_hits', 0)}")
+
+            # Check program table
+            assigned_engine = self.manager.load_balancer.get_program_engine(large_session)
+            print(f"\nProgram {large_session} assigned to: {assigned_engine}")
+            self.assertIsNotNone(assigned_engine, "Program should be in LoadBalancer pt table")
+
+        # Run async test
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run_test())
+        finally:
+            loop.close()
+
+        print("✓ LoadBalancer integration works correctly\n")
 
 
 def run_tests():
