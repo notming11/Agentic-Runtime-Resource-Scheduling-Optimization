@@ -110,35 +110,103 @@ python compare_performance.py
 ```python
 from core import Configuration
 
-# Speed preset
-config = Configuration.from_preset("speed")
+```bash
+# Clone repository
+git clone <repository-url>
+cd src/udf-optimizer
 
-# Custom configuration
-config = Configuration(
-    max_concurrent_tasks=5,
-    task_timeout_seconds=120,
-    max_retries=2
-)
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables (required for LLM features)
+cp .env.example .env
+# Edit .env and add your GOOGLE_API_KEY
+```
+
+## Project Structure
+
+```
+udf-optimizer/
+├── main.py                      # Interactive entry point (start here!)
+├── core/                        # Core parallelization engine
+│   ├── workflow_types.py        # Data structures (Plan, Step, State, etc.)
+│   ├── nodes.py                 # Parallel execution node
+│   ├── sequential_executor.py   # Sequential baseline executor
+│   ├── gemini_executor.py       # LLM-based dependency analysis
+│   └── workflow_graph.py        # Workflow orchestration
+├── tests/                       # Test suite
+│   ├── test_real_execution.py   # Real LLM integration test
+│   ├── test_demo.py             # Demo with synthetic plans
+│   ├── test_e2e.py              # End-to-end comparison test
+│   ├── test_integration.py      # Integration tests
+│   ├── test_unit.py             # Unit tests
+│   └── validate.py              # Quick validation (no LLM calls)
+├── examples/                    # Example plans and outputs
+│   ├── example_response_*.txt   # Sample plan files
+│   └── *.md                     # Generated reports
+├── config/                      # Configuration files
+│   ├── parallel_prompt.md       # LLM prompt for dependency analysis
+│   └── step_execution_prompt.md # LLM prompt for step execution
+└── docs/                        # Documentation
+    └── *.md                     # Various documentation files
 ```
 
 ## 📖 Documentation
 
-- **[docs/README.md](docs/README.md)** - Full documentation
-- **[docs/QUICKSTART.md](docs/QUICKSTART.md)** - Getting started guide
-- **[docs/REAL_INTEGRATION_GUIDE.md](docs/REAL_INTEGRATION_GUIDE.md)** - Setup and troubleshooting
-- **[docs/TECHNICAL_GUIDE.md](docs/TECHNICAL_GUIDE.md)** - Architecture deep dive
+### Running the Interactive Interface
 
-## 🧪 Testing
+The easiest way to use the optimizer is through the interactive main script:
 
-### Validation Test
-```bash
-python tests/validate.py
-```
-Checks all imports, configurations, and API key setup.
-
-### Mock Execution (Fast)
 ```bash
 python main.py
+```
+
+This will guide you through:
+1. Selecting a plan file (or providing a custom path)
+2. Choosing execution mode (parallel, sequential, or comparison)
+3. Configuring performance settings
+4. Specifying output location
+
+### Command-Line Usage
+
+For automated workflows, you can run specific test scripts:
+
+```bash
+# Run parallel execution test with real LLM integration
+python tests/test_real_execution.py
+
+# Run demonstration with synthetic plans (no API calls needed)
+python tests/test_demo.py
+
+# Run full end-to-end test with comparison report
+python tests/test_e2e.py
+
+# Run unit and integration tests
+python tests/test_unit.py
+python tests/test_integration.py
+```
+
+### Programmatic Usage
+
+```python
+from core import State, Configuration, parallel_research_team_node, load_plan_from_json
+
+# Load a plan
+plan = load_plan_from_json("examples/example_response_1.txt")
+
+# Create initial state
+state = State(current_plan=plan)
+
+# Configure parallelization
+config = Configuration(
+    enabled=True,
+    max_concurrent_tasks=5,
+    task_timeout_seconds=120,
+    dependency_strategy="llm_based"
+)
+
+# Execute
+result = await parallel_research_team_node(state, config)
 ```
 Tests architecture with simulated delays (~4s).
 

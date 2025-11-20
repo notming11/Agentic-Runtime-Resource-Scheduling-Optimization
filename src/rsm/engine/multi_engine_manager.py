@@ -7,7 +7,7 @@ of LLM calls.
 
 Key responsibilities:
 - Manage multiple EngineProcess instances
-- Route requests from load balancer to appropriate engines
+- Route requests using LoadBalancer (delegates to load_balancer module)
 - Collect and aggregate results asynchronously
 - Handle cancellation across engines
 - Provide monitoring and status reporting
@@ -32,39 +32,11 @@ from .engine_process import (
 from .kv_cache_coordinator import KVCacheCoordinator
 from .lifecycle_manager import RequestLifecycleManager, RequestState
 
-
-@dataclass
-class EngineLoad:
-    """
-    Represents the current load on an engine.
-
-    Attributes:
-        engine_id: Engine identifier
-        queue_depth: Number of requests in queue
-        active_requests: Number of currently executing requests
-        requests_per_second: Recent throughput
-        average_latency: Average response latency
-        available: Whether engine is available for new requests
-    """
-    engine_id: str
-    queue_depth: int = 0
-    active_requests: int = 0
-    requests_per_second: float = 0.0
-    average_latency: float = 0.0
-    available: bool = True
-
-    def get_load_score(self) -> float:
-        """
-        Calculate load score for routing decisions.
-
-        Lower score = less loaded.
-        """
-        if not self.available:
-            return float('inf')
-
-        # Weighted combination of queue depth and active requests
-        # Queue depth is more important as it represents backlog
-        return (2.0 * self.queue_depth + self.active_requests)
+# Import LoadBalancer from the load_balancer module
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from load_balancer import LoadBalancer
 
 
 class MultiEngineManager:
@@ -73,14 +45,15 @@ class MultiEngineManager:
 
     This is the main orchestration component that:
     1. Starts/stops multiple engine processes
-    2. Routes requests to appropriate engines using load balancing and cache affinity
+    2. Routes requests using LoadBalancer (delegates to load_balancer module)
     3. Collects results asynchronously
     4. Handles request cancellation
     5. Provides monitoring and statistics
 
     Integration:
     - Receives requests from frontend/scheduler
-    - Uses KVCacheCoordinator for routing decisions
+    - Uses LoadBalancer for routing decisions
+    - Uses KVCacheCoordinator for cache tracking
     - Uses RequestLifecycleManager for state tracking
     - Returns results via futures/callbacks
     """
@@ -88,7 +61,8 @@ class MultiEngineManager:
     def __init__(
         self,
         engine_configs: Optional[List[EngineConfig]] = None,
-        cache_token_threshold: int = 2048
+        cache_token_threshold: int = 2048,
+        process_table: Optional[Any] = None
     ):
         """
         Initialize the multi-engine manager.
@@ -96,14 +70,18 @@ class MultiEngineManager:
         Args:
             engine_configs: List of engine configurations (can add later)
             cache_token_threshold: Token threshold for cache locality routing
+            process_table: GlobalProcessTable instance (for LoadBalancer integration)
         """
         # Engine management
         self.engines: Dict[str, EngineProcess] = {}
-        self.engine_loads: Dict[str, EngineLoad] = {}
 
         # Coordinators
         self.kv_cache = KVCacheCoordinator(cache_token_threshold)
         self.lifecycle = RequestLifecycleManager()
+        
+        # Load Balancer (uses the dedicated load_balancer module)
+        self.load_balancer = LoadBalancer(process_table)
+        self.cache_token_threshold = cache_token_threshold
 
         # Request routing
         # request_id -> engine_id
@@ -213,10 +191,8 @@ class MultiEngineManager:
             engine = EngineProcess(config)
             self.engines[config.engine_id] = engine
 
-            # Initialize load tracking
-            self.engine_loads[config.engine_id] = EngineLoad(
-                engine_id=config.engine_id
-            )
+            # Register with load balancer
+            self.load_balancer.register_engine(config.engine_id)
 
             # Register with KV cache coordinator
             self.kv_cache.register_engine(config.engine_id)
@@ -248,7 +224,9 @@ class MultiEngineManager:
 
             # Remove from tracking
             del self.engines[engine_id]
-            del self.engine_loads[engine_id]
+
+            # Unregister from load balancer
+            self.load_balancer.unregister_engine(engine_id)
 
             # Unregister from KV cache coordinator
             self.kv_cache.unregister_engine(engine_id)
@@ -293,8 +271,8 @@ class MultiEngineManager:
         # Count prompt tokens (rough estimate)
         prompt_tokens = len(prompt.split())
 
-        # Select engine using load balancer and cache affinity
-        engine_id = self._select_engine(session_id, prompt_tokens)
+        # Select engine using LoadBalancer
+        engine_id = self._select_engine_with_load_balancer(session_id, prompt_tokens)
         if not engine_id:
             raise RuntimeError("No available engines")
 
@@ -378,6 +356,11 @@ class MultiEngineManager:
             # Cancel in engine
             engine = self.engines[engine_id]
             engine.cancel_request(request_id)
+            
+            # Notify load balancer of completion (to decrement workload)
+            metadata = self.lifecycle.get_request(request_id)
+            if metadata:
+                self.load_balancer.complete_request(engine_id, metadata.session_id)
 
             # Resolve future
             if request_id in self._result_futures:
@@ -407,6 +390,9 @@ class MultiEngineManager:
             if await self.cancel_request(request_metadata.request_id):
                 cancelled.append(request_metadata.request_id)
 
+        # Remove program from load balancer
+        self.load_balancer.remove_program(session_id)
+
         return cancelled
 
     def get_engine_status(self, engine_id: str) -> Optional[Dict[str, Any]]:
@@ -424,13 +410,19 @@ class MultiEngineManager:
                 return None
 
             engine = self.engines[engine_id]
-            load = self.engine_loads.get(engine_id)
+            
+            # Get workload from load balancer
+            workload = self.load_balancer.get_engine_workload(engine_id)
 
             return {
                 "engine_id": engine_id,
                 "status": engine.get_status().value,
                 "is_alive": engine.is_alive(),
-                "load": asdict(load) if load else None,
+                "load": {
+                    "queue_depth": engine.get_metrics().get("queue_depth", 0),
+                    "active_requests": workload if workload is not None else 0,
+                    "workload": workload if workload is not None else 0
+                },
                 "metrics": engine.get_metrics(),
                 "active_requests": len(self.lifecycle.get_engine_requests(engine_id))
             }
@@ -462,6 +454,9 @@ class MultiEngineManager:
                     self._stats["completed_requests"]
                 )
 
+            # Get load balancer stats
+            lb_stats = self.load_balancer.get_stats()
+
             return {
                 **self._stats,
                 "average_latency": avg_latency,
@@ -470,23 +465,23 @@ class MultiEngineManager:
                 ),
                 "total_engines": len(self.engines),
                 "lifecycle_stats": self.lifecycle.get_stats(),
-                "cache_stats": self.kv_cache.get_cache_stats()
+                "cache_stats": self.kv_cache.get_cache_stats(),
+                "load_balancer_stats": lb_stats
             }
 
-    def _select_engine(
+    def _select_engine_with_load_balancer(
         self,
         session_id: str,
         prompt_tokens: int
     ) -> Optional[str]:
         """
-        Select best engine for a request using hybrid routing policy.
+        Select best engine for a request using the LoadBalancer.
 
-        Implements Autellix's routing policy:
-        - Short calls (≤ threshold): Least-loaded engine
-        - Long calls (> threshold): Engine with cache affinity, or least-loaded
+        This delegates to the load_balancer module which implements
+        Algorithm 2 from the Autellix paper.
 
         Args:
-            session_id: Session identifier
+            session_id: Session identifier (program ID)
             prompt_tokens: Number of prompt tokens
 
         Returns:
@@ -496,63 +491,35 @@ class MultiEngineManager:
             if not self.engines:
                 return None
 
-            # Get available engines
+            # Check cache affinity for long requests
             available_engines = [
-                eid for eid, e in self.engines.items()
-                if e.is_alive() and self.engine_loads[eid].available
+                eid for eid in self.engines.keys()
+                if self.engines[eid].is_alive()
             ]
 
             if not available_engines:
                 return None
 
-            # Try cache affinity for long calls
-            affinity_engine = self.kv_cache.get_best_engine_for_session(
-                session_id,
-                available_engines,
-                prompt_tokens
+            # For long requests, check KV cache affinity first
+            if prompt_tokens > self.cache_token_threshold:
+                affinity_engine = self.kv_cache.get_best_engine_for_session(
+                    session_id,
+                    available_engines,
+                    prompt_tokens
+                )
+                if affinity_engine:
+                    # Use the affinity engine if it's in the load balancer's
+                    # program table or if this is establishing the affinity
+                    return affinity_engine
+
+            # Use LoadBalancer for routing decision
+            # This implements Algorithm 2 from the Autellix paper
+            engine_id = self.load_balancer.route_request(
+                pid=session_id,
+                num_tokens=prompt_tokens
             )
 
-            if affinity_engine:
-                return affinity_engine
-
-            # Fall back to least-loaded
-            return self._get_least_loaded_engine(available_engines)
-
-    def _get_least_loaded_engine(
-        self,
-        available_engines: Optional[List[str]] = None
-    ) -> Optional[str]:
-        """
-        Get the least loaded engine.
-
-        Args:
-            available_engines: List of engines to consider (all if None)
-
-        Returns:
-            Engine ID with lowest load
-        """
-        if available_engines is None:
-            available_engines = list(self.engines.keys())
-
-        if not available_engines:
-            return None
-
-        # Find engine with lowest load score
-        best_engine = None
-        best_score = float('inf')
-
-        for engine_id in available_engines:
-            if engine_id not in self.engine_loads:
-                continue
-
-            load = self.engine_loads[engine_id]
-            score = load.get_load_score()
-
-            if score < best_score:
-                best_score = score
-                best_engine = engine_id
-
-        return best_engine
+            return engine_id
 
     def _start_event_loop(self):
         """Start asyncio event loop in separate thread"""
@@ -606,6 +573,11 @@ class MultiEngineManager:
         """
         request_id = result.request_id
 
+        # Get metadata for session_id
+        metadata = self.lifecycle.get_request(request_id)
+        session_id = metadata.session_id if metadata else None
+        engine_id = self._request_map.get(request_id)
+
         # Update lifecycle
         if result.error:
             self.lifecycle.fail_request(request_id, result.error)
@@ -620,6 +592,10 @@ class MultiEngineManager:
             )
             self._stats["completed_requests"] += 1
             self._stats["total_latency"] += result.latency
+
+        # Notify load balancer of completion (decrement workload)
+        if engine_id and session_id:
+            self.load_balancer.complete_request(engine_id, session_id)
 
         # Resolve future
         if request_id in self._result_futures:
@@ -647,28 +623,14 @@ class MultiEngineManager:
     async def _monitor_loads(self):
         """Background task to monitor engine loads"""
         while self._running:
+            # The load monitoring is now handled by the LoadBalancer
+            # We just need to ensure engine metrics are up to date
             for engine_id, engine in list(self.engines.items()):
                 # Get metrics
                 metrics = engine.get_metrics()
                 status = engine.get_status()
 
-                # Update load
-                load = self.engine_loads[engine_id]
-                load.queue_depth = metrics.get("queue_depth", 0)
-                load.active_requests = len(
-                    self.lifecycle.get_engine_requests(engine_id)
-                )
-                load.average_latency = metrics.get("average_latency", 0.0)
-                load.available = (
-                    status == EngineStatus.READY or
-                    status == EngineStatus.BUSY
-                )
-
-                # Calculate requests per second (approximate)
-                # This would need more sophisticated tracking in production
-                load.requests_per_second = metrics.get("requests_processed", 0) / max(
-                    time.time() - engine.config.port if hasattr(engine.config, 'port') else 1.0,
-                    1.0
-                )
+                # The LoadBalancer tracks workload through route_request
+                # and complete_request calls, so no additional work needed here
 
             await asyncio.sleep(1.0)
