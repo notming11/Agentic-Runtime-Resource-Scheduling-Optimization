@@ -2,20 +2,38 @@
 
 ## 🚀 Getting Started in 5 Minutes
 
-### Step 1: Install Dependencies
+### 1. Install Dependencies
 ```bash
-cd src/udf-optimizer
 pip install -r requirements.txt
 ```
 
-### Step 2: Run the Demo
+### 2. Configure API Key
+Currently the implementation only supports the gemini API, this can easily be configured to use other service provieders by implementing a provider executor under /core
+
 ```bash
-python main.py
+# Copy template
+cp .env.example .env
+
+# Edit .env and add your key
+GEMINI_API_KEY=your_api_key_here
 ```
 
-### Step 3: See the Magic ✨
-Watch 10 research steps execute in parallel with **7.5x speedup**!
+Get API key from: https://makersuite.google.com/app/apikey
 
+### 3. Run Validation
+```bash
+cd src\udf-optimizer
+
+python tests/validate.py
+```
+
+### 4. Run the System
+```bash
+cd src\udf-optimizer
+
+# RUN e2e tests
+python tests/test_e2e.py
+```
 ---
 
 ## 📊 What You'll See
@@ -96,38 +114,6 @@ state = State(current_plan=plan)
 # Build and execute workflow
 graph = build_workflow_graph(config)
 final_state = await execute_workflow(state, config)
-```
-
----
-
-## ⚙️ Configuration Options
-
-### Speed Optimized (Default in Demo)
-```python
-config = get_example_config("speed_optimized")
-# Max concurrent: 20
-# Fast execution, minimal retries
-```
-
-### Reliability Optimized
-```python
-config = get_example_config("reliability_optimized")
-# Max concurrent: 5
-# More retries, longer timeouts
-```
-
-### Cost Optimized
-```python
-config = get_example_config("cost_optimized")
-# Max concurrent: 3
-# Minimal API calls
-```
-
-### Sequential (Fallback)
-```python
-config = get_example_config("sequential_fallback")
-# Parallelization disabled
-# Original behavior preserved
 ```
 
 ---
@@ -247,15 +233,3 @@ Speedup: 7.5x
 - **Summary:** `IMPLEMENTATION_SUMMARY.md`
 
 ---
-
-## 🎉 Success!
-
-You now have a working parallel execution system that can speed up independent research tasks by **3-10x**!
-
-**Questions?** Check the detailed documentation files.
-
-**Ready to integrate?** See the integration guide in `IMPLEMENTATION_README.md`.
-
----
-
-**Happy Parallelizing! 🚀**
