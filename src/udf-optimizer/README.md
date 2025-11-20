@@ -24,8 +24,13 @@ udf-optimizer/
 │   ├── example_prompt.txt      # Example user prompt
 │   └── test_main.py            # Original Gemini API reference
 │
-├── tests/                   # Test and validation
-│   └── validate.py         # System validation script
+├── tests/                   # Various tests and validation
+│   ├── test_demo.py
+│   ├── test_e2e.py
+│   ├── test_integration.py
+│   ├── test_real_execution.py
+│   ├── test_unit.py
+│   └── validate.py
 │
 ├── docs/                    # Documentation
 │   ├── README.md           # This file (main documentation)
