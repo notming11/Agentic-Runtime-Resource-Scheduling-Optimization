@@ -12,31 +12,49 @@
     },
     {
       "need_search": true,
-      "title": "City Research & Cost Data Collection (Cities 1-3)",
-      "description": "For Cities 1, 2, and 3 from the identified list, find the top 3 most popular attractions by yearly visitors (9 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "title": "City Research & Cost Data Collection (Cities 1-2)",
+      "description": "For Cities 1 and 2 from the identified list, find the top 3 most popular attractions by yearly visitors (6 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
       "step_type": "research"
     },
     {
       "need_search": true,
-      "title": "City Research & Cost Data Collection (Cities 4-6)",
-      "description": "For Cities 4, 5, and 6, find the top 3 most popular attractions by yearly visitors (9 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "title": "City Research & Cost Data Collection (Cities 3-4)",
+      "description": "For Cities 3 and 4 from the identified list, find the top 3 most popular attractions by yearly visitors (6 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
       "step_type": "research"
     },
     {
       "need_search": true,
-      "title": "City Research & Cost Data Collection (Cities 7-10)",
-      "description": "For Cities 7, 8, 9, and 10, find the top 3 most popular attractions by yearly visitors (12 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "title": "City Research & Cost Data Collection (Cities 5-6)",
+      "description": "For Cities 5 and 6 from the identified list, find the top 3 most popular attractions by yearly visitors (6 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
       "step_type": "research"
     },
     {
       "need_search": true,
-      "title": "Flight Price Research (Cities 1-5)",
+      "title": "City Research & Cost Data Collection (Cities 7-8)",
+      "description": "For Cities 7 and 8 from the identified list, find the top 3 most popular attractions by yearly visitors (6 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "City Research & Cost Data Collection (Cities 9-10)",
+      "description": "For Cities 9 and 10 from the identified list, find the top 3 most popular attractions by yearly visitors (6 total attractions). For each city, collect the individual attraction ticket price and the average daily food cost for tourists (local, mid-range dining/eating costs).",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Flight Price Research (Cities 1-3)",
       "description": "Determine the current average round-trip economy class flight cost from Toronto, Ontario (YYZ) to the primary international airport serving Cities 1 through 5, based on non-peak season booking averages.",
       "step_type": "research"
     },
     {
       "need_search": true,
-      "title": "Flight Price Research (Cities 6-10)",
+      "title": "Flight Price Research (Cities 4-6)",
+      "description": "Determine the current average round-trip economy class flight cost from Toronto, Ontario (YYZ) to the primary international airport serving Cities 1 through 5, based on non-peak season booking averages.",
+      "step_type": "research"
+    },
+    {
+      "need_search": true,
+      "title": "Flight Price Research (Cities 7-10)",
       "description": "Determine the current average round-trip economy class flight cost from Toronto, Ontario (YYZ) to the primary international airport serving Cities 6 through 10, based on non-peak season booking averages.",
       "step_type": "research"
     },

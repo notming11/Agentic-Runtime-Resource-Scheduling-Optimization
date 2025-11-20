@@ -84,7 +84,7 @@ class DependencyAnalyzer:
         
         # Create model with system instruction
         model_with_system = genai.GenerativeModel(
-            'models/gemini-2.0-flash-exp',
+            'models/gemini-2.5-flash',
             system_instruction=system_prompt,
             generation_config=genai.types.GenerationConfig(
                 response_mime_type="application/json"
