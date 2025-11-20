@@ -1,6 +1,6 @@
 # Generic Agent Task Parallelization Module: Complete Design Specification
 
-Production-ready parallelization system for agent workflows with LLM-based dependency analysis and Gemini API integration.
+Parallelization system for agent workflows with LLM-based dependency analysis and Gemini API integration.
 
 ## 📁 Project Structure
 
@@ -58,7 +58,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Configure API Key
-Currently the implementation only supports the gemini api, this can easily be configured to use other service provieders by implementing a provider executor under /core
+Currently the implementation only supports the gemini API, this can easily be configured to use other service provieders by implementing a provider executor under /core
 
 ```bash
 # Copy template
@@ -89,8 +89,10 @@ python tests/test_e2e.py
 
 These are results achieved using `example_response_long.txt` as input to the plan optimzier.
 
+LLM calls are "mocked" via gemini api, (running model gemini-2.5-flash). The finalized system will make calls to the RSM module for scheduling and memory optimization.
+
 **10-Step Tourist Research Plan:**
-- **Sequential**: ~110.01s
+- **Sequential**: ~110.00s
 - **Parallel**: ~85.00s
 - **Efficiency**: Automatic LLM-based batching
 
