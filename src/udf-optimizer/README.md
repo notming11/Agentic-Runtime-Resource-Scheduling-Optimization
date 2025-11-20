@@ -44,7 +44,6 @@ udf-optimizer/
 │   └── CHECKLIST.md                   # Development checklist
 │
 ├── main.py                  # Demo with mock execution
-├── main_real.py            # Demo with real Gemini API
 ├── requirements.txt        # Python dependencies
 ├── .env.example           # Environment variable template
 ├── .env                   # Your API key (gitignored)
@@ -73,10 +72,12 @@ Get API key from: https://makersuite.google.com/app/apikey
 
 ### 3. Run Validation
 ```bash
+cd src\udf-optimizer
+
 python tests/validate.py
 ```
 
-### 3. Run the System
+### 4. Run the System
 ```bash
 cd src\udf-optimizer
 
@@ -86,6 +87,8 @@ python tests/test_e2e.py
 
 ## 📊 Performance Example
 
+These are results achieved using `example_response_long.txt` as input to the plan optimzier.
+
 **10-Step Tourist Research Plan:**
 - **Sequential**: ~110.01s
 - **Parallel**: ~85.00s
@@ -93,83 +96,15 @@ python tests/test_e2e.py
 
 ## 🎯 Key Features
 
-### 1. **LLM-Based Dependency Analysis**
+### **LLM-Based Dependency Analysis**
 - Automatically determines optimal task batching
 - No hardcoded dependency rules
 - Conservative parallelization (safe by default)
 
-### 2. **Real Gemini API Integration**
+### **Gemini API Integration**
 - Dependency analysis using `config/parallel_prompt.md`
 - Step execution with context awareness
 - Research vs Processing task differentiation
-
-### 3. **Production-Ready Architecture**
-- Async/await for non-blocking I/O
-- Rate limiting and retry logic
-- Comprehensive error handling
-- Detailed logging and metrics
-
-### 4. **Flexible Configuration**
-```python
-from core import Configuration
-
-```bash
-# Clone repository
-git clone <repository-url>
-cd src/udf-optimizer
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Set up environment variables (required for LLM features)
-cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY
-```
-
-### Programmatic Usage
-
-```python
-from core import State, Configuration, parallel_research_team_node, load_plan_from_json
-
-# Load a plan
-plan = load_plan_from_json("examples/example_response_1.txt")
-
-# Create initial state
-state = State(current_plan=plan)
-
-# Configure parallelization
-config = Configuration(
-    enabled=True,
-    max_concurrent_tasks=5,
-    task_timeout_seconds=120,
-    dependency_strategy="llm_based"
-)
-
-# Execute
-result = await parallel_research_team_node(state, config)
-```
-Tests architecture with simulated delays (~4s).
-
-### Real Execution (Realistic)
-```bash
-python main_real.py
-```
-Full LLM integration with actual API calls (~45s).
-
-### Performance Comparison
-```bash
-python compare_performance.py
-```
-Runs both parallel and sequential execution, captures metrics, and generates an LLM-analyzed performance report to `examples/example_performance_report.md`.
-
-## 🔧 Configuration Presets
-
-| Preset | Concurrent | Timeout | Retries | Use Case |
-|--------|-----------|---------|---------|----------|
-| **speed** | 5 | 120s | 2 | Development |
-| **balanced** | 5 | 120s | 2 | Production |
-| **reliability** | 3 | 180s | 3 | Critical |
-| **cost** | 2 | 90s | 1 | Budget |
 
 ## 📦 Core Components
 
