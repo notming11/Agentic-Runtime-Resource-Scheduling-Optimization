@@ -113,13 +113,9 @@ class ATLASScheduler(MLFQBase):
     
         # Check quantum exhaustion
         self._check_quantum_exhaustion(program)
-    
-        # Sync to process table
-        self.process_table.update_program_metrics(program_id, {
-            'cumulative_service': program.cumulative_service,
-            'current_priority': program.current_priority,
-            'scheduling_mode': program.scheduling_mode
-        })
+
+        # Unregister request mapping now that it's complete
+        self.process_table.unregister_request(request_id)
     
     def _check_quantum_exhaustion(self, program: ProgramContext):
         quantum = self.get_quantum_for_priority(program.current_priority)
@@ -218,11 +214,14 @@ class ATLASScheduler(MLFQBase):
         # Add to both queues
         program.pending_requests.append(request_id)
         thread.pending_requests.append(request_id)
-    
+
+        # Register request mapping in process table for later lookups
+        self.process_table.register_request(request_id, program_id, thread_id)
+
         # Calculate priority from cumulative service
         priority = self.calculate_priority_from_service(program.cumulative_service)
         program.current_priority = priority
-    
+
         # Enqueue in priority queue manager
         self.queue_manager.enqueue_program(program, priority)
         

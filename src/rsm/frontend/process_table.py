@@ -214,6 +214,10 @@ class GlobalProcessTable:
         self._table: Dict[str, ProgramEntry] = {}
         self._lock = threading.RLock()  # Reentrant lock for nested access
 
+        # Track request-to-program/thread mappings for scheduler
+        self._request_to_program: Dict[str, str] = {}  # request_id -> program_id
+        self._request_to_thread: Dict[str, str] = {}   # request_id -> thread_id
+
     def create_program(self, pid: str, is_multithreaded: bool = False) -> ProgramEntry:
         """
         Create a new program entry in the process table.
@@ -471,3 +475,54 @@ class GlobalProcessTable:
             # Remove stale programs
             for pid in stale_pids:
                 self._table.pop(pid, None)
+
+    def register_request(self, request_id: str, program_id: str, thread_id: Optional[str] = None):
+        """
+        Register a request mapping for scheduler lookups.
+
+        Args:
+            request_id: Request/call identifier
+            program_id: Program identifier
+            thread_id: Optional thread identifier
+        """
+        with self._lock:
+            self._request_to_program[request_id] = program_id
+            if thread_id:
+                self._request_to_thread[request_id] = thread_id
+
+    def unregister_request(self, request_id: str):
+        """
+        Remove a request mapping when request completes.
+
+        Args:
+            request_id: Request identifier
+        """
+        with self._lock:
+            self._request_to_program.pop(request_id, None)
+            self._request_to_thread.pop(request_id, None)
+
+    def get_program_for_request(self, request_id: str) -> Optional[str]:
+        """
+        Get the program ID for a given request.
+
+        Args:
+            request_id: Request identifier
+
+        Returns:
+            Program ID if found, None otherwise
+        """
+        with self._lock:
+            return self._request_to_program.get(request_id)
+
+    def get_thread_for_request(self, request_id: str) -> Optional[str]:
+        """
+        Get the thread ID for a given request.
+
+        Args:
+            request_id: Request identifier
+
+        Returns:
+            Thread ID if found, None otherwise
+        """
+        with self._lock:
+            return self._request_to_thread.get(request_id)

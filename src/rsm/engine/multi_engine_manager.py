@@ -88,8 +88,8 @@ class MultiEngineManager:
         self._request_map: Dict[str, str] = {}
 
         # Result futures
-        # request_id -> Future
-        self._result_futures: Dict[str, asyncio.Future] = {}
+        # request_id -> (Future, event_loop)
+        self._result_futures: Dict[str, tuple[asyncio.Future, asyncio.AbstractEventLoop]] = {}
 
         # Result callbacks
         # request_id -> callback
@@ -293,9 +293,15 @@ class MultiEngineManager:
             prompt_tokens=prompt_tokens
         )
 
-        # Create future for result
-        future = asyncio.Future()
-        self._result_futures[request_id] = future
+        # Create future for result in the current event loop
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No event loop running, use the manager's loop
+            loop = self._loop if self._loop else asyncio.get_event_loop()
+
+        future = loop.create_future()
+        self._result_futures[request_id] = (future, loop)
 
         if callback:
             self._result_callbacks[request_id] = callback
@@ -364,9 +370,9 @@ class MultiEngineManager:
 
             # Resolve future
             if request_id in self._result_futures:
-                future = self._result_futures[request_id]
+                future, future_loop = self._result_futures[request_id]
                 if not future.done():
-                    future.cancel()
+                    future_loop.call_soon_threadsafe(future.cancel)
 
             # Update stats
             self._stats["cancelled_requests"] += 1
@@ -540,17 +546,18 @@ class MultiEngineManager:
         if not self._loop:
             return
 
-        # Result collector
-        self._result_collector_task = asyncio.run_coroutine_threadsafe(
+        # Result collector - schedule coroutine to run in event loop
+        # Don't call .result() as these are infinite loops!
+        asyncio.run_coroutine_threadsafe(
             self._collect_results(),
             self._loop
-        ).result()
+        )
 
         # Load monitor
-        self._load_monitor_task = asyncio.run_coroutine_threadsafe(
+        asyncio.run_coroutine_threadsafe(
             self._monitor_loads(),
             self._loop
-        ).result()
+        )
 
     async def _collect_results(self):
         """Background task to collect results from engines"""
@@ -597,14 +604,21 @@ class MultiEngineManager:
         if engine_id and session_id:
             self.load_balancer.complete_request(engine_id, session_id)
 
-        # Resolve future
+        # Resolve future (thread-safe)
         if request_id in self._result_futures:
-            future = self._result_futures[request_id]
+            future, future_loop = self._result_futures[request_id]
             if not future.done():
                 if result.error:
-                    future.set_exception(RuntimeError(result.error))
+                    # Resolve future in its original event loop
+                    future_loop.call_soon_threadsafe(
+                        future.set_exception,
+                        RuntimeError(result.error)
+                    )
                 else:
-                    future.set_result(result)
+                    future_loop.call_soon_threadsafe(
+                        future.set_result,
+                        result
+                    )
             del self._result_futures[request_id]
 
         # Call callback

@@ -21,6 +21,14 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import queue
 
+# Set multiprocessing start method to 'spawn' for better compatibility
+# This avoids issues with forking when threads/asyncio are active
+try:
+    mp.set_start_method('spawn')
+except RuntimeError:
+    # Start method already set, that's OK
+    pass
+
 
 class EngineStatus(Enum):
     """Engine process status"""
@@ -226,7 +234,12 @@ class EngineProcess:
         Returns:
             True if request was queued, False otherwise
         """
-        if self._status != EngineStatus.READY:
+        # Update status from queue before checking
+        current_status = self.get_status()
+
+        # Accept requests unless engine is stopped or in error state
+        # BUSY engines can still queue new requests
+        if current_status in (EngineStatus.STOPPED, EngineStatus.ERROR):
             return False
 
         try:
@@ -466,6 +479,14 @@ class EngineProcess:
 
             except queue.Empty:
                 pass
+
+            # Clean up completed tasks
+            completed_request_ids = [
+                req_id for req_id, task in active_requests.items()
+                if task.done()
+            ]
+            for req_id in completed_request_ids:
+                del active_requests[req_id]
 
             # Check for cancelled requests (iterate over dict keys)
             for request_id in list(cancel_dict.keys()):

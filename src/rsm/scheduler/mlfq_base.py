@@ -51,7 +51,7 @@ class MLFQBase:
             
     def get_quantum_for_priority(self, priority: int):
         """get quantum for a priority level"""
-        return self.priority_levels[priority].quantum
+        return self.priority_levels[priority].time_quantum
     
     def calculate_priority_from_service(self, service_time: int):
         if service_time < self.base_quantum:
